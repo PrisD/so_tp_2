@@ -1,3 +1,10 @@
+/* Desarrolle un programa de chat usando Cola de Mensajes. Repita el mismo
+esquema de procesos que en el punto anterior (2 procesos independientes con un
+hijo cada uno). Puede resolverse con una única cola de mensajes en donde se
+escriben mensajes de distinto tipo (al menos requerirá mensajes de 2 tipos
+distintos). Puede resolverlo con un único programa, del cual crea dos procesos
+independientes y recibe argumentos por línea de comandos */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,50 +15,46 @@
 #include <wait.h>
 
 #define MSG_SIZE 1000
-#define MSG_TYPE_1 1
-#define MSG_TYPE_2 2
 
-// Estructura del mensaje
 struct msg_buffer {
   long msg_type;
   char msg_text[MSG_SIZE];
 };
 
 void chat(int msgid, long send_type, long receive_type) {
-  struct msg_buffer message;
+  struct msg_buffer mensaje;
   char buffer[MSG_SIZE];
 
   pid_t pid = fork();
 
-  if (pid == 0) { // Proceso hijo (receptor)
+  if (pid == 0) {
     while (1) {
-      memset(message.msg_text, 0, MSG_SIZE);
-      msgrcv(msgid, &message, sizeof(message.msg_text), receive_type, 0);
-      if (strcmp(message.msg_text, "bye\n") == 0) {
+      memset(mensaje.msg_text, 0, MSG_SIZE);
+      msgrcv(msgid, &mensaje, sizeof(mensaje.msg_text), receive_type, 0);
+      if (strcmp(mensaje.msg_text, "bye\n") == 0) {
         printf("El chat ha finalizado\n");
         break;
       } else {
-        printf("\n- %s", message.msg_text);
+        printf("\n- %s", mensaje.msg_text);
       }
     }
-    exit(0); // Termina el proceso hijo al salir del bucle
-  } else {   // Proceso padre (emisor)
+    exit(0); 
+  } else {  
     while (1) {
       fgets(buffer, MSG_SIZE, stdin);
-      message.msg_type = send_type;
-      strcpy(message.msg_text, buffer);
-      msgsnd(msgid, &message, sizeof(message.msg_text), 0);
+      mensaje.msg_type = send_type;
+      strcpy(mensaje.msg_text, buffer);
+      msgsnd(msgid, &mensaje, sizeof(mensaje.msg_text), 0);
 
       if (strcmp(buffer, "bye\n") == 0) {
         printf("Has finalizado el chat\n");
-        // Envía el mensaje de salida también al tipo de mensaje del receptor
-        message.msg_type = receive_type;
-        strcpy(message.msg_text, "bye\n");
-        msgsnd(msgid, &message, sizeof(message.msg_text), 0);
+        mensaje.msg_type = receive_type;
+        strcpy(mensaje.msg_text, "bye\n");
+        msgsnd(msgid, &mensaje, sizeof(mensaje.msg_text), 0);
         break;
       }
     }
-    wait(NULL); // Espera a que el proceso hijo termine
+    wait(NULL);
   }
 }
 
@@ -59,25 +62,21 @@ int main(int argc, char *argv[]) {
   key_t key;
   int msgid;
 
-  // Crear clave única para la cola de mensajes
   key = ftok("chatColaMsg.c", 'B');
   if (key == -1) {
     perror("Error al generar la clave");
     exit(1);
   }
 
-  // Crear o obtener la cola de mensajes
   msgid = msgget(key, 0666 | IPC_CREAT);
   if (msgid == -1) {
     perror("Error al crear la cola de mensajes");
     exit(1);
   }
 
-  // Limpiar mensajes residuales en la cola antes de iniciar el chat
-  struct msg_buffer message;
-  while (msgrcv(msgid, &message, sizeof(message.msg_text), 0, IPC_NOWAIT) !=
+  struct msg_buffer mensaje;
+  while (msgrcv(msgid, &mensaje, sizeof(mensaje.msg_text), 0, IPC_NOWAIT) !=
          -1) {
-    // Limpia la cola eliminando mensajes residuales
   }
 
   printf("Chat iniciado. Escriba 'bye' para salir.\n");
@@ -88,19 +87,16 @@ int main(int argc, char *argv[]) {
   }
 
   if (strcmp(argv[1], "1") == 0) {
-    // Proceso 1: envía mensajes de tipo 1, recibe mensajes de tipo 2
-    chat(msgid, MSG_TYPE_1, MSG_TYPE_2);
+    chat(msgid, 1, 2);
   } else if (strcmp(argv[1], "2") == 0) {
-    // Proceso 2: envía mensajes de tipo 2, recibe mensajes de tipo 1
-    chat(msgid, MSG_TYPE_2, MSG_TYPE_1);
+    chat(msgid, 2, 1);
   } else {
     fprintf(stderr, "Parámetro inválido. Use '1' o '2'.\n");
     exit(1);
   }
 
-  // Eliminar la cola de mensajes cuando termine
   if (strcmp(argv[1], "2") ==
-      0) { // Eliminar la cola cuando el proceso 2 finaliza
+      0) {
     msgctl(msgid, IPC_RMID, NULL);
   }
 
