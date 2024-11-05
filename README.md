@@ -1,2 +1,2 @@
-#TP 2 
+# TP 2 
 ## Sistemas operativos 2024
