@@ -8,7 +8,6 @@ tipea la palabra “bye” el proceso deja de enviar y recibir mensajes a travé
 los fifo’s. */
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
