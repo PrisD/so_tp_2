@@ -14,34 +14,33 @@ independientes y recibe argumentos por línea de comandos */
 #include <unistd.h>
 #include <wait.h>
 
-#define MSG_SIZE 1000
 
 struct msg_buffer {
   long msg_type;
-  char msg_text[MSG_SIZE];
+  char msg_text[1000];
 };
 
 void chat(int msgid, long send_type, long receive_type) {
   struct msg_buffer mensaje;
-  char buffer[MSG_SIZE];
+  char buffer[1000];
 
   pid_t pid = fork();
 
   if (pid == 0) {
     while (1) {
-      memset(mensaje.msg_text, 0, MSG_SIZE);
+      memset(mensaje.msg_text, 0, 1000);
       msgrcv(msgid, &mensaje, sizeof(mensaje.msg_text), receive_type, 0);
       if (strcmp(mensaje.msg_text, "bye\n") == 0) {
         printf("El chat ha finalizado\n");
         break;
       } else {
-        printf("\n- %s", mensaje.msg_text);
+        printf("- %s", mensaje.msg_text);
       }
     }
     exit(0); 
   } else {  
     while (1) {
-      fgets(buffer, MSG_SIZE, stdin);
+      fgets(buffer, 1000, stdin);
       mensaje.msg_type = send_type;
       strcpy(mensaje.msg_text, buffer);
       msgsnd(msgid, &mensaje, sizeof(mensaje.msg_text), 0);
@@ -61,44 +60,21 @@ void chat(int msgid, long send_type, long receive_type) {
 int main(int argc, char *argv[]) {
   key_t key;
   int msgid;
+  struct msg_buffer mensaje;
 
   key = ftok("chatColaMsg.c", 'B');
-  if (key == -1) {
-    perror("Error al generar la clave");
-    exit(1);
-  }
-
   msgid = msgget(key, 0666 | IPC_CREAT);
-  if (msgid == -1) {
-    perror("Error al crear la cola de mensajes");
-    exit(1);
-  }
-
-  struct msg_buffer mensaje;
-  while (msgrcv(msgid, &mensaje, sizeof(mensaje.msg_text), 0, IPC_NOWAIT) !=
-         -1) {
-  }
 
   printf("Chat iniciado. Escriba 'bye' para salir.\n");
 
-  if (argc < 2) {
-    fprintf(stderr, "Uso: %s <proceso>\n", argv[0]);
-    exit(1);
-  }
-
-  if (strcmp(argv[1], "1") == 0) {
+  if (strcmp(argv[1], "1") == 0) { // Manejar para consola con atributo 1
     chat(msgid, 1, 2);
-  } else if (strcmp(argv[1], "2") == 0) {
+  } else if (strcmp(argv[1], "2") == 0) { // Manejar para consola con atributo 1
     chat(msgid, 2, 1);
+    msgctl(msgid, IPC_RMID, NULL);
   } else {
-    fprintf(stderr, "Parámetro inválido. Use '1' o '2'.\n");
+    fprintf(stderr, "Parametro inexistente. \n");
     exit(1);
   }
-
-  if (strcmp(argv[1], "2") ==
-      0) {
-    msgctl(msgid, IPC_RMID, NULL);
-  }
-
   return 0;
 }
