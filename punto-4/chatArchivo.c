@@ -48,7 +48,6 @@ int main(int argc, char *argv[]) {
   if (pid == 0) {
     while (1) {
       notificacion(&last_message_pos);
-      usleep(500000);
     }
     exit(0);
   } else if (pid > 0) {
