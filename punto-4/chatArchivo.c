@@ -54,18 +54,14 @@ int main(int argc, char *argv[]) {
     while (1) {
       fgets(buffer, 256, stdin);
       buffer[strcspn(buffer, "\n")] = '\0';
-
       if (strcmp(buffer, "bye") == 0) {
         printf("Cerrando chat.\n");
         break;
       }
-
       enviar(usuario, buffer);
     }
-
     kill(pid, SIGTERM);
     wait(NULL);
   }
-
   return 0;
 }
