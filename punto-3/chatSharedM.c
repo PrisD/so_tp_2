@@ -39,65 +39,52 @@ void V(int semid, int sem) {
 
 int main(int argc, char *argv[]) {
   key_t key;
-
   key = ftok("chatSharedM.c", 'B');
 
-
   int proc_num = atoi(argv[1]);
-  if (proc_num != 0 && proc_num != 1) {
-    fprintf(stderr, "El número de proceso debe ser 0 o 1.\n");
-    exit(EXIT_FAILURE);
-  }
-
   int shmid = shmget(key, sizeof(struct mensaje), 0666 | IPC_CREAT);
   struct mensaje *mem = (struct mensaje *)shmat(shmid, NULL, 0);
 
-  // Crear semáforos
   int semid = semget(key, 2, 0666 | IPC_CREAT);
-  semctl(semid, 0, SETVAL, 1); // Semáforo de escritura
-  semctl(semid, 1, SETVAL, 1); // Semáforo de lectura
+  semctl(semid, 0, SETVAL, 1);
+  semctl(semid, 1, SETVAL, 1);
 
   mem->listo[0] = 0;
   mem->listo[1] = 0;
 
   pid_t pid = fork();
 
-  if (pid == 0) { // Proceso hijo para recibir mensajes
+  if (pid == 0) {
     while (1) {
-      P(semid, 1); // Bloquear lectura
+      P(semid, 1);
       if (mem->listo[1 - proc_num] == 1) {
-        printf("Recibido: %s\n", mem->msg);
+        printf("- %s\n", mem->msg);
         if (strcmp(mem->msg, "bye") == 0) {
-          printf("El otro usuario ha salido del chat.\n");
+          printf("El chat ha finalizado\n");
           break;
         }
-        mem->listo[1 - proc_num] = 0; // Marcar mensaje como leído
+        mem->listo[1 - proc_num] = 0;
         fflush(stdout);
       }
-      V(semid, 1);    // Liberar lectura
-      usleep(100000); // Reducir consumo de CPU
+      V(semid, 1);
     }
-  } else { // Proceso padre para enviar mensajes
+  } else {
     while (1) {
       char buffer[256];
-      printf("Tú: ");
       fgets(buffer, 256, stdin);
-      buffer[strcspn(buffer, "\n")] = '\0'; // Eliminar salto de línea
+      buffer[strcspn(buffer, "\n")] = '\0';
 
-      P(semid, 0); // Bloquear escritura
+      P(semid, 0);
       strncpy(mem->msg, buffer, 256);
-      mem->listo[proc_num] = 1; // Marcar mensaje como listo
-
-      V(semid, 0); // Liberar escritura
-
+      mem->listo[proc_num] = 1;
+      V(semid, 0); 
       if (strcmp(buffer, "bye") == 0) {
-        printf("Saliendo del chat...\n");
+        printf("Has finalizado el chat\n");
         break;
       }
     }
     wait(NULL);
   }
-
   shmdt(mem);
   if (pid != 0) {
     shmctl(shmid, IPC_RMID, NULL);
