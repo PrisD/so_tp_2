@@ -44,13 +44,13 @@ void run_server(int queue, const char *filename) {
       } else {
         server_msg.estado = 0;
         snprintf(server_msg.descripcion, sizeof(server_msg.descripcion),
-                 "Registro %d está vacío", client_msg.num_registro);
+                 "registro %d vacio", client_msg.num_registro);
       }
     } else if (strcmp(client_msg.descripcion, "borrar") == 0) {
       if (server_msg.estado == 1) {
         server_msg.estado = 2;
         snprintf(server_msg.descripcion, sizeof(server_msg.descripcion),
-                 "Registro %d borrado", client_msg.num_registro);
+                 "registro %d borrado", client_msg.num_registro);
 
         fseek(file_pointer,
               client_msg.num_registro * sizeof(struct servidor_mensaje),
@@ -59,7 +59,7 @@ void run_server(int queue, const char *filename) {
       } else {
         server_msg.estado = 0;
         snprintf(server_msg.descripcion, sizeof(server_msg.descripcion),
-                 "Registro %d ya está vacío o borrado",
+                 "registro %d vacio",
                  client_msg.num_registro);
       }
     } else {
