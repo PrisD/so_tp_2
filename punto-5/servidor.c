@@ -27,8 +27,7 @@ void run_server(int queue, const char *filename) {
 
   signal(SIGINT, signal_handler);
 
-  printf("Servidor levantado y listo para recibir mensajes.\n"); // Mensaje de
-                                                                 // inicio
+  printf("Servidor levantado y listo para recibir mensajes.\n");
 
   while (1) {
     msgrcv(queue, &client_msg, sizeof(struct cliente_mensaje) - sizeof(long), 1,
@@ -84,8 +83,7 @@ int main(int argc, char *argv[]) {
   key_t key = 0xA;
   int queue = msgget(key, 0666 | IPC_CREAT);
 
-  printf(
-      "Servidor levantado y en espera de solicitudes...\n"); // Mensaje inicial
+  printf("Servidor levantado y en espera de solicitudes...\n");
   run_server(queue, argv[1]);
 
   return 0;
