@@ -9,7 +9,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-
 struct cliente_mensaje {
   long tipo;
   int pid;
@@ -24,9 +23,9 @@ struct servidor_mensaje {
   char descripcion[100];
 };
 
-void enviar_mensaje_cliente(int cola,struct cliente_mensaje *msg);
-void recibir_mensaje_servidor(int cola, struct servidor_mensaje *msg, int pid);
-void manejar_cliente(int cola);
-void manejar_servidor(int cola, const char *archivo);
+void enviar_mensaje_cliente(int queue, struct cliente_mensaje *msg);
+void recibir_mensaje_servidor(int queue, struct servidor_mensaje *msg, int pid);
+void manejar_cliente(int queue);
+void run_server(int queue, const char *filename);
 
 #endif

@@ -1,58 +1,56 @@
 #include "protocolo.h"
 
-void enviar_mensaje_cliente(int cola, struct cliente_mensaje *msg) {
-  msgsnd(cola, msg, sizeof(struct cliente_mensaje) - sizeof(long), 0);
+void enviar_mensaje_cliente(int queue, struct cliente_mensaje *msg) {
+  msgsnd(queue, msg, sizeof(struct cliente_mensaje) - sizeof(long), 0);
 }
 
-void recibir_mensaje_servidor(int cola, struct servidor_mensaje *msg, int pid) {
-  msgrcv(cola, msg, sizeof(struct servidor_mensaje) - sizeof(long), pid, 0);
+void recibir_mensaje_servidor(int queue, struct servidor_mensaje *msg,
+                              int pid) {
+  msgrcv(queue, msg, sizeof(struct servidor_mensaje) - sizeof(long), pid, 0);
 }
 
-void manejar_cliente(int cola) {
-  struct cliente_mensaje msg_cliente;
-  struct servidor_mensaje msg_servidor;
-  char entrada[200]; // buffer para leer la entrada del usuario
-  int pid, num_registro;
-  char descripcion[100];
+void mensaje_flujo(int queue) {
+  struct cliente_mensaje client_msg;
+  struct servidor_mensaje server_msg;
+  char input[200];
+  int pid, record_num;
+  char description[100];
 
-  msg_cliente.tipo = 1;
-  msg_cliente.pid = getpid();
+  client_msg.tipo = 1;
+  client_msg.pid = getpid();
 
-  printf("FORMATO DEL MENSAJE <pid>,<número de registro>,<descripción>:\n");
-  printf("EJEMPLO LEER: %d,45,leer\n", msg_cliente.pid);
-  printf("EJEMPLO BORRAR: %d,54,borrar\n", msg_cliente.pid);
-  printf("EJEMPLO ESCRIBIR: %d,100,hola mundo\n\n", msg_cliente.pid);
+  printf("Pid proceso: %d\n", client_msg.pid);
+  printf("Ingrese comando en el formato: pid,num_registro,descripcion o "
+         "escriba 'bye' para salir.\n");
 
   while (1) {
+    fgets(input, sizeof(input), stdin);
 
-    fgets(entrada, sizeof(entrada), stdin);
+    // Si el usuario ingresa "bye", termina el programa
+    if (strncmp(input, "bye", 3) == 0) {
+      printf("Terminando el cliente...\n");
+      break;
+    }
 
-    // parsear la entrada
-    if (sscanf(entrada, "%d,%d,%99[^\n]", &pid, &num_registro, descripcion) !=
-        3) {
+    if (sscanf(input, "%d,%d,%99[^\n]", &pid, &record_num, description) != 3) {
       printf("Formato incorrecto. Intente de nuevo.\n");
       continue;
     }
 
-    msg_cliente.pid = pid;
-    msg_cliente.num_registro = num_registro;
-    strncpy(msg_cliente.descripcion, descripcion, 100);
+    client_msg.pid = pid;
+    client_msg.num_registro = record_num;
+    strncpy(client_msg.descripcion, description,
+            sizeof(client_msg.descripcion));
+    enviar_mensaje_cliente(queue, &client_msg);
+    recibir_mensaje_servidor(queue, &server_msg, client_msg.pid);
 
-    enviar_mensaje_cliente(cola, &msg_cliente);
-
-    recibir_mensaje_servidor(cola, &msg_servidor, msg_cliente.pid);
-
-    if (msg_servidor.estado == 1) {
-      printf("servidor- %s\n", msg_servidor.descripcion);
-    } else {
-      printf("servidor- %s\n", msg_servidor.descripcion);
-    }
+    printf("servidor- %s\n", server_msg.descripcion);
   }
 }
 
 int main() {
   key_t key = 0xA;
-  int cola = msgget(key, 0666 | IPC_CREAT);
-  manejar_cliente(cola);
+  int queue = msgget(key, 0666 | IPC_CREAT);
+  mensaje_flujo(queue);
   return 0;
 }

@@ -1,80 +1,92 @@
 #include "protocolo.h"
 
-int cola_msg;
-FILE *file;
+int msg_queue;
+FILE *file_pointer;
 
-void manejador_signal(int signo) {
-  if (file)
-    fclose(file);
-  msgctl(cola_msg, IPC_RMID, NULL);
+void signal_handler(int signo) {
+  if (file_pointer)
+    fclose(file_pointer);
+  msgctl(msg_queue, IPC_RMID, NULL);
   exit(0);
 }
 
-void manejar_servidor(int cola, const char *archivo) {
-  struct cliente_mensaje msg_cliente;
-  struct servidor_mensaje msg_servidor;
-  cola_msg = cola;
+void run_server(int queue, const char *filename) {
+  struct cliente_mensaje client_msg;
+  struct servidor_mensaje server_msg;
+  msg_queue = queue;
 
-  file = fopen(archivo, "r+b");
-  if (!file) {
-    file = fopen(archivo, "w+b");
+  file_pointer = fopen(filename, "r+b");
+  if (!file_pointer) {
+    file_pointer = fopen(filename, "w+b");
     for (int i = 0; i < 1000; i++) {
-      msg_servidor.estado = 0;
-      memset(msg_servidor.descripcion, 0, 100);
-      fwrite(&msg_servidor, sizeof(struct servidor_mensaje), 1, file);
+      server_msg.estado = 0;
+      memset(server_msg.descripcion, 0, sizeof(server_msg.descripcion));
+      fwrite(&server_msg, sizeof(struct servidor_mensaje), 1, file_pointer);
     }
   }
 
-  signal(SIGINT, manejador_signal);
+  signal(SIGINT, signal_handler);
+
+  printf("Servidor levantado y listo para recibir mensajes.\n"); // Mensaje de
+                                                                 // inicio
 
   while (1) {
-    msgrcv(cola, &msg_cliente, sizeof(struct cliente_mensaje) - sizeof(long), 1, 0);
+    msgrcv(queue, &client_msg, sizeof(struct cliente_mensaje) - sizeof(long), 1,
+           0);
 
-    fseek(file, msg_cliente.num_registro * sizeof(struct servidor_mensaje),
-          SEEK_SET);
-    fread(&msg_servidor, sizeof(struct servidor_mensaje), 1, file);
+    fseek(file_pointer,
+          client_msg.num_registro * sizeof(struct servidor_mensaje), SEEK_SET);
+    fread(&server_msg, sizeof(struct servidor_mensaje), 1, file_pointer);
 
-    if (strcmp(msg_cliente.descripcion, "leer") == 0) {
-      if (msg_servidor.estado == 1) {
-        msg_servidor.tipo = msg_cliente.pid;
-        msg_servidor.estado = 1;
+    if (strcmp(client_msg.descripcion, "leer") == 0) {
+      if (server_msg.estado == 1) {
+        server_msg.tipo = client_msg.pid;
+        server_msg.estado = 1;
       } else {
-        msg_servidor.estado = 0;
-        snprintf(msg_servidor.descripcion, 100, "Registro %d está vacío",
-                 msg_cliente.num_registro);
+        server_msg.estado = 0;
+        snprintf(server_msg.descripcion, sizeof(server_msg.descripcion),
+                 "Registro %d está vacío", client_msg.num_registro);
       }
-    } else if (strcmp(msg_cliente.descripcion, "borrar") == 0) {
-      if (msg_servidor.estado == 1) {
-        msg_servidor.estado = 2;
-        snprintf(msg_servidor.descripcion, 100, "Registro %d borrado",
-                 msg_cliente.num_registro);
+    } else if (strcmp(client_msg.descripcion, "borrar") == 0) {
+      if (server_msg.estado == 1) {
+        server_msg.estado = 2;
+        snprintf(server_msg.descripcion, sizeof(server_msg.descripcion),
+                 "Registro %d borrado", client_msg.num_registro);
 
-        fseek(file, msg_cliente.num_registro * sizeof(struct servidor_mensaje),
+        fseek(file_pointer,
+              client_msg.num_registro * sizeof(struct servidor_mensaje),
               SEEK_SET);
-        fwrite(&msg_servidor, sizeof(struct servidor_mensaje), 1, file);
+        fwrite(&server_msg, sizeof(struct servidor_mensaje), 1, file_pointer);
       } else {
-        msg_servidor.estado = 0;
-        snprintf(msg_servidor.descripcion, 100,
+        server_msg.estado = 0;
+        snprintf(server_msg.descripcion, sizeof(server_msg.descripcion),
                  "Registro %d ya está vacío o borrado",
-                 msg_cliente.num_registro);
+                 client_msg.num_registro);
       }
     } else {
-      msg_servidor.estado = 1;
-      msg_servidor.num_registro = msg_cliente.num_registro;
-      strcpy(msg_servidor.descripcion, msg_cliente.descripcion);
-      fseek(file, msg_cliente.num_registro * sizeof(struct servidor_mensaje), SEEK_SET);
-      fwrite(&msg_servidor, sizeof(struct servidor_mensaje), 1, file);
+      server_msg.estado = 1;
+      server_msg.num_registro = client_msg.num_registro;
+      strncpy(server_msg.descripcion, client_msg.descripcion,
+              sizeof(server_msg.descripcion));
+      fseek(file_pointer,
+            client_msg.num_registro * sizeof(struct servidor_mensaje),
+            SEEK_SET);
+      fwrite(&server_msg, sizeof(struct servidor_mensaje), 1, file_pointer);
     }
 
-    // enviar respuesta al cliente
-    msg_servidor.tipo = msg_cliente.pid;
-    msgsnd(cola, &msg_servidor, sizeof(struct servidor_mensaje) - sizeof(long), 0);
+    server_msg.tipo = client_msg.pid;
+    msgsnd(queue, &server_msg, sizeof(struct servidor_mensaje) - sizeof(long),
+           0);
   }
 }
 
 int main(int argc, char *argv[]) {
   key_t key = 0xA;
-  int cola = msgget(key, 0666 | IPC_CREAT);
-  manejar_servidor(cola, argv[1]);
+  int queue = msgget(key, 0666 | IPC_CREAT);
+
+  printf(
+      "Servidor levantado y en espera de solicitudes...\n"); // Mensaje inicial
+  run_server(queue, argv[1]);
+
   return 0;
 }
